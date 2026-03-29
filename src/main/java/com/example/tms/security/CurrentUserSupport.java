@@ -12,6 +12,9 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 @Component
 public class CurrentUserSupport {
 
+ private static final String PLATFORM_ADMIN_NAME = "Youssouf Diarra";
+ private static final String PLATFORM_ADMIN_EMAIL = "dyoussouf12@gmail.com";
+
  public AppUser currentUser(HttpServletRequest request){
   Object user = request.getAttribute("currentUser");
   if(user instanceof AppUser appUser){
@@ -31,5 +34,18 @@ public class CurrentUserSupport {
    }
   }
   throw new ResponseStatusException(FORBIDDEN, "Insufficient permissions");
+ }
+
+ public boolean isPlatformAdmin(AppUser user){
+  return user != null
+   && PLATFORM_ADMIN_NAME.equalsIgnoreCase(user.getFullName())
+   && PLATFORM_ADMIN_EMAIL.equalsIgnoreCase(user.getEmail());
+ }
+
+ public void requirePlatformAdmin(AppUser user){
+  if(isPlatformAdmin(user)){
+   return;
+  }
+  throw new ResponseStatusException(FORBIDDEN, "Platform admin access required");
  }
 }

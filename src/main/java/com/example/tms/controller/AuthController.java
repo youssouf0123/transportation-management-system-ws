@@ -50,22 +50,35 @@ public class AuthController {
    throw new ResponseStatusException(HttpStatus.CONFLICT, "Organization already exists");
   }
 
-  if(userRepository.findByEmail(email).isPresent()){
-   throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
-  }
+ if(userRepository.findByEmail(email).isPresent()){
+  throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
+ }
+
+  boolean platformAdmin = "Youssouf Diarra".equalsIgnoreCase(fullName)
+   && "dyoussouf12@gmail.com".equalsIgnoreCase(email);
 
   Organization organization = new Organization();
   organization.setName(organizationName);
+  organization.setStatus(platformAdmin ? "APPROVED" : "PENDING");
   organization = organizationRepository.save(organization);
 
   AppUser user = new AppUser();
   user.setFullName(fullName);
   user.setEmail(email);
   user.setRole("OWNER");
+  user.setStatus("ACTIVE");
   user.setPasswordHash(passwordEncoder.encode(password));
   user.setAuthToken(UUID.randomUUID().toString());
   user.setOrganization(organization);
   user = userRepository.save(user);
+
+  if(!organization.isApproved()){
+   Map<String, Object> response = new LinkedHashMap<>();
+   response.put("pendingApproval", true);
+   response.put("organizationStatus", organization.getStatus());
+   response.put("message", "Workspace request sent for approval");
+   return response;
+  }
 
   return authResponse(user);
  }
@@ -81,6 +94,14 @@ public class AuthController {
 
   if(!passwordEncoder.matches(password, user.getPasswordHash())){
    throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+  }
+
+  if(!user.isActive()){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "User access has been revoked");
+  }
+
+  if(!user.getOrganization().isApproved()){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Organization access is awaiting approval");
   }
 
   user.setAuthToken(UUID.randomUUID().toString());
@@ -103,8 +124,10 @@ public class AuthController {
   userMap.put("fullName", user.getFullName());
   userMap.put("email", user.getEmail());
   userMap.put("role", user.getRole());
+  userMap.put("status", user.getStatus() == null ? "ACTIVE" : user.getStatus());
   userMap.put("organizationName", user.getOrganization().getName());
   userMap.put("organizationId", user.getOrganization().getId());
+  userMap.put("organizationStatus", user.getOrganization().getStatus() == null ? "APPROVED" : user.getOrganization().getStatus());
   payload.put("user", userMap);
   return payload;
  }

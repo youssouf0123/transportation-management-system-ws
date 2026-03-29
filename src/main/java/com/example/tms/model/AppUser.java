@@ -17,6 +17,8 @@ public class AppUser {
 
  private String role;
 
+ private String status;
+
  @JsonIgnore
  private String passwordHash;
 
@@ -37,6 +39,13 @@ public class AppUser {
 
  public String getRole(){ return role; }
  public void setRole(String role){ this.role=role; }
+
+ public String getStatus(){ return status; }
+ public void setStatus(String status){ this.status=status; }
+
+ public boolean isActive(){
+  return status == null || "ACTIVE".equalsIgnoreCase(status);
+ }
 
  public String getPasswordHash(){ return passwordHash; }
  public void setPasswordHash(String passwordHash){ this.passwordHash=passwordHash; }

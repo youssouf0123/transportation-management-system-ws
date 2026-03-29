@@ -40,6 +40,20 @@ public class AuthInterceptor implements HandlerInterceptor {
    return false;
   }
 
+  if(!user.isActive()){
+   user.setAuthToken(null);
+   userRepository.save(user);
+   response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User access has been revoked");
+   return false;
+  }
+
+  if(!user.getOrganization().isApproved()){
+   user.setAuthToken(null);
+   userRepository.save(user);
+   response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Organization access has been revoked");
+   return false;
+  }
+
   request.setAttribute("currentUser", user);
   return true;
  }
