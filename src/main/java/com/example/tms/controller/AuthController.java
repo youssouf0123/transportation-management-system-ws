@@ -37,13 +37,13 @@ public class AuthController {
 
  @PostMapping("/register")
  public Map<String, Object> register(@RequestBody Map<String, String> payload){
-  String organizationName = payload.get("organizationName");
-  String fullName = payload.get("fullName");
-  String email = payload.get("email");
+  String organizationName = normalize(payload.get("organizationName"));
+  String fullName = normalize(payload.get("fullName"));
+  String email = normalize(payload.get("email"));
   String password = payload.get("password");
 
-  if(organizationName == null || fullName == null || email == null || password == null){
-   throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing registration fields");
+  if(organizationName == null || fullName == null || email == null || password == null || password.isBlank()){
+   throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All workspace fields are required");
   }
 
   if(organizationRepository.findByName(organizationName).isPresent()){
@@ -130,5 +130,14 @@ public class AuthController {
   userMap.put("organizationStatus", user.getOrganization().getStatus() == null ? "APPROVED" : user.getOrganization().getStatus());
   payload.put("user", userMap);
   return payload;
+ }
+
+ private String normalize(String value){
+  if(value == null){
+   return null;
+  }
+
+  String trimmed = value.trim();
+  return trimmed.isEmpty() ? null : trimmed;
  }
 }

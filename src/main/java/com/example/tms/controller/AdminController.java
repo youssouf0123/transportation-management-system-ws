@@ -1,9 +1,25 @@
 package com.example.tms.controller;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.example.tms.model.AppUser;
 import com.example.tms.model.Organization;
-import com.example.tms.repository.AuditLogRepository;
 import com.example.tms.repository.AppUserRepository;
+import com.example.tms.repository.AuditLogRepository;
 import com.example.tms.repository.DocumentRecordRepository;
 import com.example.tms.repository.DriverRepository;
 import com.example.tms.repository.FinanceRepository;
@@ -13,16 +29,9 @@ import com.example.tms.repository.TripRepository;
 import com.example.tms.repository.VehicleRepository;
 import com.example.tms.security.CurrentUserSupport;
 import com.example.tms.service.AuditLogService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/admin")
@@ -148,6 +157,9 @@ public class AdminController {
   currentUserSupport.requirePlatformAdmin(currentUser);
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admin cannot be edited from this page");
+  }
   String incomingEmail = payload.get("email");
   if(incomingEmail != null && !incomingEmail.equalsIgnoreCase(user.getEmail()) && userRepository.findByEmail(incomingEmail).isPresent()){
    throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already in use");
@@ -179,6 +191,9 @@ public class AdminController {
   currentUserSupport.requirePlatformAdmin(currentUser);
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admin cannot be revoked from this page");
+  }
   if(currentUser.getId().equals(user.getId()) && !"ACTIVE".equalsIgnoreCase(payload.getOrDefault("status", "ACTIVE"))){
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot revoke yourself");
   }
@@ -199,6 +214,9 @@ public class AdminController {
   currentUserSupport.requirePlatformAdmin(currentUser);
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Platform admin cannot be deleted from this page");
+  }
   if(currentUser.getId().equals(user.getId())){
    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot delete yourself");
   }
@@ -212,6 +230,7 @@ public class AdminController {
   data.put("name", organization.getName());
   data.put("status", organization.getStatus() == null ? "APPROVED" : organization.getStatus());
   data.put("users", userRepository.findByOrganization(organization).stream()
+   .filter(user -> !currentUserSupport.isPlatformAdmin(user))
    .sorted(Comparator.comparing(AppUser::getFullName, String.CASE_INSENSITIVE_ORDER))
    .map(this::toUserMap)
    .toList());

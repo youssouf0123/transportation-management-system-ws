@@ -35,6 +35,7 @@ public class UserController {
  public List<Map<String, Object>> getUsers(HttpServletRequest request){
   AppUser currentUser = currentUserSupport.currentUser(request);
   return userRepository.findByOrganization(currentUser.getOrganization()).stream()
+   .filter(user -> !currentUserSupport.isPlatformAdmin(user))
    .map(this::toUserMap)
    .toList();
  }
@@ -72,6 +73,9 @@ public class UserController {
   currentUserSupport.requireRole(currentUser, "OWNER", "MANAGER");
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot manage the platform admin from this page");
+  }
   if(!user.getOrganization().getId().equals(currentUser.getOrganization().getId())){
    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wrong organization");
   }
@@ -87,6 +91,9 @@ public class UserController {
   currentUserSupport.requireRole(currentUser, "OWNER", "MANAGER");
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot manage the platform admin from this page");
+  }
   if(!user.getOrganization().getId().equals(currentUser.getOrganization().getId())){
    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wrong organization");
   }
@@ -124,6 +131,9 @@ public class UserController {
   currentUserSupport.requireRole(currentUser, "OWNER");
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot manage the platform admin from this page");
+  }
   if(!user.getOrganization().getId().equals(currentUser.getOrganization().getId())){
    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wrong organization");
   }
@@ -141,6 +151,9 @@ public class UserController {
   currentUserSupport.requireRole(currentUser, "OWNER", "MANAGER");
 
   AppUser user = userRepository.findById(id).orElseThrow();
+  if(currentUserSupport.isPlatformAdmin(user)){
+   throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot manage the platform admin from this page");
+  }
   if(!user.getOrganization().getId().equals(currentUser.getOrganization().getId())){
    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wrong organization");
   }
