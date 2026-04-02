@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @RestController
 @CrossOrigin(origins = {"http://localhost:8100", "http://localhost:4200"})
@@ -59,9 +60,10 @@ public class SearchController {
  }
 
  @GetMapping
- public SearchResponse search(@RequestParam String q, HttpServletRequest request) {
+ public SearchResponse search(@RequestParam String q, @RequestParam(defaultValue = "en") String lang, HttpServletRequest request) {
   AppUser user = currentUserSupport.currentUser(request);
   String query = q == null ? "" : q.trim();
+  boolean french = "fr".equalsIgnoreCase(lang);
   if(query.isBlank()) {
    return new SearchResponse(query, 0, List.of());
   }
@@ -77,12 +79,14 @@ public class SearchController {
     "driver",
     driver.getId(),
     driver.getName(),
-    "License: " + safe(driver.getLicenseNumber()) + " • Status: " + safe(driver.getStatus()),
-    "/drivers/list"
+    label(french, "Numéro de permis", "License") + ": " + safe(driver.getLicenseNumber())
+     + " • " + label(french, "Statut", "Status") + ": " + localizeStatus(driver.getStatus(), french),
+    "/drivers/list",
+    Map.of("driverId", driver.getId())
    ))
    .toList();
   if(!driverResults.isEmpty()) {
-   sections.add(new SearchSection("drivers", "Drivers", driverResults));
+   sections.add(new SearchSection("drivers", label(french, "Chauffeurs", "Drivers"), driverResults));
   }
 
   List<SearchItem> vehicleResults = vehicleRepository.findAll().stream()
@@ -94,12 +98,15 @@ public class SearchController {
     "vehicle",
     vehicle.getId(),
     safe(vehicle.getMake()) + " " + safe(vehicle.getModel()),
-    "Plate: " + safe(vehicle.getPlateNumber()) + " • Driver: " + safe(vehicle.getDriver() != null ? vehicle.getDriver().getName() : "Unassigned"),
-    "/vehicles/list"
+    label(french, "Plaque", "Plate") + ": " + safe(vehicle.getPlateNumber())
+     + " • " + label(french, "Chauffeur", "Driver") + ": "
+     + safe(vehicle.getDriver() != null ? vehicle.getDriver().getName() : label(french, "Non affecté", "Unassigned")),
+    "/vehicles/list",
+    Map.of("vehicleId", vehicle.getId())
    ))
    .toList();
   if(!vehicleResults.isEmpty()) {
-   sections.add(new SearchSection("vehicles", "Vehicles", vehicleResults));
+   sections.add(new SearchSection("vehicles", label(french, "Véhicules", "Vehicles"), vehicleResults));
   }
 
   List<SearchItem> tripResults = tripRepository.findAll().stream()
@@ -111,31 +118,47 @@ public class SearchController {
    .map(trip -> new SearchItem(
     "trip",
     trip.getId(),
-    safe(trip.getOrigin()) + " to " + safe(trip.getDestination()),
-    "Date: " + String.valueOf(trip.getScheduledDate()) + " • Status: " + safe(trip.getStatus()),
-    "/trips/list"
+    safe(trip.getOrigin()) + " " + label(french, "vers", "to") + " " + safe(trip.getDestination()),
+    label(french, "Date", "Date") + ": " + String.valueOf(trip.getScheduledDate())
+     + " • " + label(french, "Statut", "Status") + ": " + localizeStatus(trip.getStatus(), french)
+     + " • " + label(french, "Chauffeur", "Driver") + ": "
+     + safe(trip.getDriver() != null ? trip.getDriver().getName() : label(french, "Non affecté", "Unassigned")),
+    "/trips/list",
+    Map.of("tripId", trip.getId())
    ))
    .toList();
   if(!tripResults.isEmpty()) {
-   sections.add(new SearchSection("trips", "Trips", tripResults));
+   sections.add(new SearchSection("trips", label(french, "Trajets", "Trips"), tripResults));
   }
 
   List<SearchItem> financeResults = financeRepository.findAll().stream()
    .filter(record -> record.getOrganization().getId().equals(user.getOrganization().getId()))
-   .filter(record -> contains(needle, record.getDescription(), record.getType(), record.getCategory(), record.getRecordScope(),
+   .filter(record -> contains(needle, record.getDescription(), record.getDescriptionEn(), record.getDescriptionFr(),
+    record.getType(), record.getCategory(), record.getRecordScope(),
     record.getVehicle() != null ? record.getVehicle().getPlateNumber() : null,
+    record.getVehicle() != null && record.getVehicle().getDriver() != null ? record.getVehicle().getDriver().getName() : null,
     String.valueOf(record.getAmount())))
    .limit(5)
    .map(record -> new SearchItem(
     "finance",
     record.getId(),
-    safe(record.getDescription()),
-    "Type: " + safe(record.getType()) + " • Amount: " + record.getAmount(),
-    "/finance/list"
+    safe(firstPresent(
+      french ? record.getDescriptionFr() : record.getDescriptionEn(),
+      record.getDescription(),
+      record.getDescriptionEn(),
+      record.getDescriptionFr(),
+      french ? "Écriture financière" : "Finance Record"
+    )),
+    label(french, "Type", "Type") + ": " + localizeFinanceType(record.getType(), french)
+     + " • " + label(french, "Montant", "Amount") + ": " + record.getAmount()
+     + " • " + label(french, "Chauffeur", "Driver") + ": "
+     + safe(record.getVehicle() != null && record.getVehicle().getDriver() != null ? record.getVehicle().getDriver().getName() : label(french, "Non affecté", "Unassigned")),
+    "/finance/list",
+    Map.of("recordId", record.getId())
    ))
    .toList();
   if(!financeResults.isEmpty()) {
-   sections.add(new SearchSection("finance", "Finance", financeResults));
+   sections.add(new SearchSection("finance", label(french, "Finance", "Finance"), financeResults));
   }
 
   List<SearchItem> maintenanceResults = maintenanceRecordRepository.findAll().stream()
@@ -147,12 +170,15 @@ public class SearchController {
     "maintenance",
     record.getId(),
     safe(record.getServiceType()),
-    "Date: " + String.valueOf(record.getServiceDate()) + " • Vehicle: " + safe(record.getVehicle() != null ? record.getVehicle().getPlateNumber() : "No vehicle"),
-    "/maintenance/list"
+    label(french, "Date", "Date") + ": " + String.valueOf(record.getServiceDate())
+     + " • " + label(french, "Véhicule", "Vehicle") + ": "
+     + safe(record.getVehicle() != null ? record.getVehicle().getPlateNumber() : label(french, "Aucun véhicule", "No vehicle")),
+    "/maintenance/list",
+    Map.of("recordId", record.getId())
    ))
    .toList();
   if(!maintenanceResults.isEmpty()) {
-   sections.add(new SearchSection("maintenance", "Maintenance", maintenanceResults));
+   sections.add(new SearchSection("maintenance", label(french, "Maintenance", "Maintenance"), maintenanceResults));
   }
 
   List<SearchItem> documentResults = documentRecordRepository.findAll().stream()
@@ -164,12 +190,16 @@ public class SearchController {
     "document",
     document.getId(),
     safe(document.getTitle()),
-    "Type: " + safe(document.getDocumentType()) + " • File: " + safe(document.getFileName()),
-    "/documents"
+    label(french, "Type", "Type") + ": " + localizeDocumentType(document.getDocumentType(), french)
+     + " • " + label(french, "Fichier", "File") + ": " + safe(document.getFileName())
+     + " • " + label(french, "Chauffeur", "Driver") + ": "
+     + safe(resolveRelatedDriverName(document.getEntityType(), document.getEntityId(), user.getOrganization().getId(), french)),
+    "/documents",
+    Map.of("documentId", document.getId())
    ))
    .toList();
   if(!documentResults.isEmpty()) {
-   sections.add(new SearchSection("documents", "Documents", documentResults));
+   sections.add(new SearchSection("documents", label(french, "Documents", "Documents"), documentResults));
   }
 
   if(isManager(user)) {
@@ -181,12 +211,13 @@ public class SearchController {
      "user",
      appUser.getId(),
      safe(appUser.getFullName()),
-     safe(appUser.getEmail()) + " • " + safe(appUser.getRole()),
-     "/users"
+     safe(appUser.getEmail()) + " • " + localizeRole(appUser.getRole(), french),
+     "/users",
+     Map.of("userId", appUser.getId())
     ))
     .toList();
    if(!userResults.isEmpty()) {
-    sections.add(new SearchSection("users", "Users", userResults));
+    sections.add(new SearchSection("users", label(french, "Utilisateurs", "Users"), userResults));
    }
 
    List<SearchItem> auditResults = auditLogRepository.findAll().stream()
@@ -196,13 +227,16 @@ public class SearchController {
     .map(log -> new SearchItem(
      "audit",
      log.getId(),
-     safe(log.getEntityType()) + " • " + safe(log.getAction()),
-     safe(log.getDescription()),
-     "/audit"
+     localizeEntity(log.getEntityType(), french) + " • " + localizeAction(log.getAction(), french),
+     localizeAuditDescription(log.getDescription(), french)
+      + " • " + label(french, "Chauffeur", "Driver") + ": "
+      + safe(resolveRelatedDriverName(log.getEntityType(), log.getEntityId(), user.getOrganization().getId(), french)),
+     "/audit",
+     Map.of("auditId", log.getId())
     ))
     .toList();
    if(!auditResults.isEmpty()) {
-    sections.add(new SearchSection("audit", "Audit Log", auditResults));
+    sections.add(new SearchSection("audit", label(french, "Journal d'audit", "Audit Log"), auditResults));
    }
   }
 
@@ -227,7 +261,191 @@ public class SearchController {
   return value == null || value.isBlank() ? "N/A" : value;
  }
 
+ private String firstPresent(String... values) {
+  for(String value : values) {
+   if(value != null && !value.isBlank()) {
+    return value;
+   }
+  }
+  return "";
+ }
+
+ private String label(boolean french, String frenchText, String englishText) {
+  return french ? frenchText : englishText;
+ }
+
+ private String localizeStatus(String status, boolean french) {
+  if(status == null) return "";
+  return switch (status.toUpperCase(Locale.ROOT)) {
+   case "AVAILABLE" -> label(french, "Disponible", "Available");
+   case "ON_TRIP" -> label(french, "En trajet", "On Trip");
+   case "OFF_DUTY" -> label(french, "Hors service", "Off Duty");
+   case "ACTIVE" -> label(french, "Actif", "Active");
+   case "IN_SERVICE" -> label(french, "En service", "In Service");
+   case "OUT_OF_SERVICE" -> label(french, "Hors service", "Out Of Service");
+   case "SCHEDULED" -> label(french, "Planifié", "Scheduled");
+   case "COMPLETED" -> label(french, "Terminé", "Completed");
+   case "PLANNED" -> label(french, "Planifié", "Planned");
+   case "IN_PROGRESS" -> label(french, "En cours", "In Progress");
+   case "EXPIRED" -> label(french, "Expiré", "Expired");
+   case "ARCHIVED" -> label(french, "Archivé", "Archived");
+   default -> safe(status);
+  };
+ }
+
+ private String localizeFinanceType(String type, boolean french) {
+  if(type == null) return "";
+  return switch (type.toUpperCase(Locale.ROOT)) {
+   case "EARNING" -> label(french, "Recette", "Earning");
+   case "EXPENSE" -> label(french, "Dépense", "Expense");
+   default -> safe(type);
+  };
+ }
+
+ private String localizeDocumentType(String type, boolean french) {
+  if(type == null) return "";
+  return switch (type.toUpperCase(Locale.ROOT)) {
+   case "LICENSE" -> label(french, "Permis", "License");
+   case "INSURANCE" -> label(french, "Assurance", "Insurance");
+   case "REGISTRATION" -> label(french, "Immatriculation", "Registration");
+   case "CONTRACT" -> label(french, "Contrat", "Contract");
+   case "RECEIPT" -> label(french, "Reçu", "Receipt");
+   default -> safe(type);
+  };
+ }
+
+ private String localizeRole(String role, boolean french) {
+  if(role == null) return "";
+  return switch (role.toUpperCase(Locale.ROOT)) {
+   case "OWNER" -> label(french, "Propriétaire", "Owner");
+   case "MANAGER" -> label(french, "Gestionnaire", "Manager");
+   case "DISPATCHER" -> label(french, "Dispatcher", "Dispatcher");
+   case "FINANCE" -> label(french, "Finance", "Finance");
+   case "VIEWER" -> label(french, "Lecteur", "Viewer");
+   default -> safe(role);
+  };
+ }
+
+ private String localizeEntity(String entity, boolean french) {
+  if(entity == null) return "";
+  return switch (entity.toUpperCase(Locale.ROOT)) {
+   case "DRIVER" -> label(french, "Chauffeur", "Driver");
+   case "VEHICLE" -> label(french, "Véhicule", "Vehicle");
+   case "TRIP" -> label(french, "Trajet", "Trip");
+   case "FINANCE" -> label(french, "Finance", "Finance");
+   case "WORKSPACE" -> label(french, "Espace de travail", "Workspace");
+   case "MAINTENANCE" -> label(french, "Maintenance", "Maintenance");
+   case "DOCUMENT" -> label(french, "Document", "Document");
+   case "USER" -> label(french, "Utilisateur", "User");
+   default -> safe(entity);
+  };
+ }
+
+ private String localizeAction(String action, boolean french) {
+  if(action == null) return "";
+  return switch (action.toUpperCase(Locale.ROOT)) {
+   case "CREATE" -> label(french, "Création", "Create");
+   case "UPDATE" -> label(french, "Mise à jour", "Update");
+   case "DELETE" -> label(french, "Suppression", "Delete");
+   case "ASSIGN" -> label(french, "Affectation", "Assign");
+   case "UPDATE_ROLE" -> label(french, "Changement de rôle", "Role Change");
+   default -> safe(action);
+  };
+ }
+
+ private String localizeAuditDescription(String description, boolean french) {
+  if(description == null || description.isBlank() || !french) {
+   return safe(description);
+  }
+
+  return description
+   .replace("Created trip ", "Trajet créé ")
+   .replace("Updated trip ", "Trajet mis à jour ")
+   .replace("Deleted trip ", "Trajet supprimé ")
+   .replace(" to ", " vers ")
+   .replace("Created driver ", "Chauffeur créé ")
+   .replace("Updated driver ", "Chauffeur mis à jour ")
+   .replace("Deleted driver ", "Chauffeur supprimé ")
+   .replace("Created vehicle ", "Véhicule créé ")
+   .replace("Updated vehicle ", "Véhicule mis à jour ")
+   .replace("Deleted vehicle ", "Véhicule supprimé ")
+   .replace("Assigned driver ", "Chauffeur affecté ")
+   .replace(" to vehicle ", " au véhicule ")
+   .replace("Created maintenance record ", "Maintenance créée ")
+   .replace("Updated maintenance record ", "Maintenance mise à jour ")
+   .replace("Deleted maintenance record ", "Maintenance supprimée ")
+   .replace("Added document ", "Document ajouté ")
+   .replace("Updated document ", "Document mis à jour ")
+   .replace("Deleted document ", "Document supprimé ")
+   .replace("Added miscellaneous finance record ", "Écriture diverse ajoutée ")
+   .replace("Updated finance record ", "Écriture financière mise à jour ")
+   .replace("Deleted finance record ", "Écriture financière supprimée ")
+   .replace("Added team member ", "Membre ajouté ")
+   .replace("Changed role for ", "Rôle modifié pour ")
+   .replace(" to OWNER", " en Propriétaire")
+   .replace(" to MANAGER", " en Gestionnaire")
+   .replace(" to DISPATCHER", " en Dispatcher")
+   .replace(" to FINANCE", " en Finance")
+   .replace(" to VIEWER", " en Lecteur")
+   .replace("Updated team member ", "Membre mis à jour ")
+   .replace("Deleted team member ", "Membre supprimé ")
+   .replace("Changed user access for ", "Accès utilisateur modifié pour ")
+   .replace("Changed platform user access for ", "Accès utilisateur plateforme modifié pour ")
+   .replace("Updated platform user ", "Utilisateur plateforme mis à jour ")
+   .replace("Deleted platform user ", "Utilisateur plateforme supprimé ")
+   .replace("Updated workspace ", "Espace de travail mis à jour ")
+   .replace("Changed workspace ", "Espace de travail modifié ")
+   .replace(" status to ", " statut vers ")
+   .replace("Deleted workspace ", "Espace de travail supprimé ")
+   .replace("Added EARNING record for vehicle ", "Recette ajoutée pour le véhicule ")
+   .replace("Added EXPENSE record for vehicle ", "Dépense ajoutée pour le véhicule ");
+ }
+
+ private String resolveRelatedDriverName(String entityType, Long entityId, Long organizationId, boolean french) {
+  if(entityType == null || entityId == null) {
+   return label(french, "Non affecté", "Unassigned");
+  }
+
+  return switch (entityType.toUpperCase(Locale.ROOT)) {
+   case "DRIVER" -> driverRepository.findAll().stream()
+    .filter(driver -> driver.getOrganization().getId().equals(organizationId))
+    .filter(driver -> driver.getId().equals(entityId))
+    .map(driver -> safe(driver.getName()))
+    .findFirst()
+    .orElse(label(french, "Non affecté", "Unassigned"));
+   case "VEHICLE" -> vehicleRepository.findAll().stream()
+    .filter(vehicle -> vehicle.getOrganization().getId().equals(organizationId))
+    .filter(vehicle -> vehicle.getId().equals(entityId))
+    .map(vehicle -> vehicle.getDriver() != null ? safe(vehicle.getDriver().getName()) : label(french, "Non affecté", "Unassigned"))
+    .findFirst()
+    .orElse(label(french, "Non affecté", "Unassigned"));
+   case "TRIP" -> tripRepository.findAll().stream()
+    .filter(trip -> trip.getOrganization().getId().equals(organizationId))
+    .filter(trip -> trip.getId().equals(entityId))
+    .map(trip -> trip.getDriver() != null ? safe(trip.getDriver().getName()) : label(french, "Non affecté", "Unassigned"))
+    .findFirst()
+    .orElse(label(french, "Non affecté", "Unassigned"));
+   case "FINANCE" -> financeRepository.findAll().stream()
+    .filter(record -> record.getOrganization().getId().equals(organizationId))
+    .filter(record -> record.getId().equals(entityId))
+    .map(record -> record.getVehicle() != null && record.getVehicle().getDriver() != null
+     ? safe(record.getVehicle().getDriver().getName())
+     : label(french, "Non affecté", "Unassigned"))
+    .findFirst()
+    .orElse(label(french, "Non affecté", "Unassigned"));
+   case "MAINTENANCE" -> maintenanceRecordRepository.findAll().stream()
+    .filter(record -> record.getOrganization().getId().equals(organizationId))
+    .filter(record -> record.getId().equals(entityId))
+    .map(record -> record.getVehicle() != null && record.getVehicle().getDriver() != null
+     ? safe(record.getVehicle().getDriver().getName())
+     : label(french, "Non affecté", "Unassigned"))
+    .findFirst()
+    .orElse(label(french, "Non affecté", "Unassigned"));
+   default -> label(french, "Non affecté", "Unassigned");
+  };
+ }
+
  public record SearchResponse(String query, int totalResults, List<SearchSection> sections) {}
  public record SearchSection(String key, String title, List<SearchItem> results) {}
- public record SearchItem(String type, Long id, String title, String subtitle, String route) {}
+ public record SearchItem(String type, Long id, String title, String subtitle, String route, Map<String, Object> queryParams) {}
 }
