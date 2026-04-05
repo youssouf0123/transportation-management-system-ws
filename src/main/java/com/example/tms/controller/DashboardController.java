@@ -6,11 +6,13 @@ import com.example.tms.repository.MaintenanceRecordRepository;
 import com.example.tms.repository.TripRepository;
 import com.example.tms.repository.VehicleRepository;
 import com.example.tms.model.AppUser;
+import com.example.tms.model.FinanceRecord;
 import com.example.tms.security.CurrentUserSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -47,17 +49,15 @@ public class DashboardController {
   AppUser user = currentUserSupport.currentUser(request);
   LocalDate now = LocalDate.now();
   LocalDate monthStart = now.withDayOfMonth(1);
+  List<FinanceRecord> monthlyFinanceRecords =
+   financeRepo.findByOrganizationIdAndDateBetween(user.getOrganization().getId(), monthStart, now);
 
-  double earnings = financeRepo.findAll().stream()
-   .filter(record -> record.getOrganization().getId().equals(user.getOrganization().getId()))
-   .filter(record -> record.getDate() != null && !record.getDate().isBefore(monthStart))
+  double earnings = monthlyFinanceRecords.stream()
    .filter(record -> "EARNING".equalsIgnoreCase(record.getType()))
    .mapToDouble(record -> record.getAmount())
    .sum();
 
-  double expenses = financeRepo.findAll().stream()
-   .filter(record -> record.getOrganization().getId().equals(user.getOrganization().getId()))
-   .filter(record -> record.getDate() != null && !record.getDate().isBefore(monthStart))
+  double expenses = monthlyFinanceRecords.stream()
    .filter(record -> "EXPENSE".equalsIgnoreCase(record.getType()))
    .mapToDouble(record -> record.getAmount())
    .sum();

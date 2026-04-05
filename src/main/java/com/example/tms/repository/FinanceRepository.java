@@ -14,6 +14,10 @@ public interface FinanceRepository extends JpaRepository<FinanceRecord,Long> {
 
  List<FinanceRecord> findByDateBetween(LocalDate start, LocalDate end);
 
+ List<FinanceRecord> findByOrganizationId(Long organizationId);
+
+ List<FinanceRecord> findByOrganizationIdAndDateBetween(Long organizationId, LocalDate start, LocalDate end);
+
  List<FinanceRecord> findByVehicleId(Long vehicleId);
 
  List<FinanceRecord> findByVehicleIdAndDate(Long vehicleId, LocalDate date);
