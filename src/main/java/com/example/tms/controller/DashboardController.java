@@ -50,7 +50,7 @@ public class DashboardController {
   LocalDate now = LocalDate.now();
   LocalDate monthStart = now.withDayOfMonth(1);
   List<FinanceRecord> monthlyFinanceRecords =
-   financeRepo.findByOrganizationIdAndDateBetween(user.getOrganization().getId(), monthStart, now);
+   financeRepo.findByOrganization_IdAndDateBetween(user.getOrganization().getId(), monthStart, now);
 
   double earnings = monthlyFinanceRecords.stream()
    .filter(record -> "EARNING".equalsIgnoreCase(record.getType()))
