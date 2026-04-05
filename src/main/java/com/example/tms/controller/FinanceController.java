@@ -128,6 +128,7 @@ public class FinanceController {
  public List<FinanceRecord> getAll(
    @RequestParam(required = false) Long vehicleId,
    @RequestParam(required = false) Long driverId,
+   @RequestParam(required = false) String category,
    @RequestParam(required = false) String type,
    @RequestParam(required = false) String scope,
    @RequestParam(required = false) String date,
@@ -144,6 +145,7 @@ public class FinanceController {
    .filter(record -> record.getOrganization().getId().equals(user.getOrganization().getId()))
    .filter(record -> vehicleId == null || (record.getVehicle() != null && vehicleId.equals(record.getVehicle().getId())))
    .filter(record -> driverId == null || (record.getVehicle() != null && record.getVehicle().getDriver() != null && driverId.equals(record.getVehicle().getDriver().getId())))
+   .filter(record -> category == null || category.isBlank() || category.equalsIgnoreCase(record.getCategory()))
    .filter(record -> type == null || type.isBlank() || type.equalsIgnoreCase(record.getType()))
    .filter(record -> scope == null || scope.isBlank() || scope.equalsIgnoreCase(record.getRecordScope()))
    .filter(record -> parsedDate == null || parsedDate.equals(record.getDate()))
